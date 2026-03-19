@@ -12,6 +12,8 @@ float errorPenalty = 1.0f; //for every error, add this value to mean time
 int startTime = 0; // time starts when the first click is captured
 int finishTime = 0; //records the time of the final click
 boolean userDone = false; //is the user done
+int errorFlashStart = -1; //timestamp of last error, -1 means no flash
+final int errorFlashDuration = 600; //ms to show error flash
 
 final int screenPPI = 72; //what is the DPI of the screen you are using
 //you can test this by drawing a 72x72 pixel rectangle in code, and then confirming with a ruler it is 1x1 inch. 
@@ -126,6 +128,19 @@ void draw() {
   rect(0, 0, logoZ, logoZ);
   popMatrix();
 
+  //===========ERROR FLASH=================
+  if (errorFlashStart >= 0) {
+    float elapsed = millis() - errorFlashStart;
+    if (elapsed < errorFlashDuration) {
+      float alpha = map(elapsed, 0, errorFlashDuration, 120, 0);
+      noStroke();
+      fill(220, 0, 0, alpha);
+      rect(width/2, height/2, width, height);
+    } else {
+      errorFlashStart = -1;
+    }
+  }
+
   //===========DRAW EXAMPLE CONTROLS=================
   fill(255);
   scaffoldControlLogic(); //you are going to want to replace this!
@@ -142,6 +157,22 @@ void scaffoldControlLogic()
     logoX = mouseX;
     logoY = mouseY;
     drawFeedback(dist(d.x, d.y, logoX, logoY) < inchToPix(.05f));
+
+    // Flash the position circle
+    float pulse = (sin(millis() * 0.02f) + 1) * 0.5f;
+    noStroke();
+    fill(0, 255, 0, 30 + pulse * 225);
+    ellipse(d.x, d.y, inchToPix(.05f) * 2, inchToPix(.05f) * 2);
+
+    // Fixed preview of where the phase 1 rectangle will be
+    float nearestRot    = findNearestEquivalentAngle(d.rotation, logoRotation);
+    float predictX      = d.x + (d.z - logoZ) / sizeScale;
+    float predictY      = d.y - (nearestRot - logoRotation) / rotScale;
+    float tolW          = 2 * inchToPix(.1f) / sizeScale;
+    float tolH          = 2 * 5.0f / rotScale;
+    noStroke();
+    fill(255, 255, 255, 25);
+    rect(predictX, predictY, tolW, tolH);
 
     // Line from cursor to target center
     strokeCap(ROUND);
@@ -174,13 +205,22 @@ void scaffoldControlLogic()
     strokeCap(SQUARE);
 
     drawReticle(targetX, targetY, tolW, tolH);
+
+    // Ghost of next trial's position circle
+    if (trialIndex + 1 < trialCount) {
+      Destination next = destinations.get(trialIndex + 1);
+      noStroke();
+      fill(255, 255, 255, 100);
+      ellipse(next.x, next.y, inchToPix(.05f) * 2, inchToPix(.05f) * 2);
+    }
   }
 
 }
 
 void drawReticle(float cx, float cy, float w, float h) {
+  float pulse = (sin(millis() * 0.02f) + 1) * 0.5f;
   noStroke();
-  fill(0, 200, 0);
+  fill(0, 255, 0, 30 + pulse * 225);
   rect(cx, cy, w, h);
 }
 
@@ -238,6 +278,8 @@ void mousePressed()
     anchorLogoZ  = logoZ;
     anchorRotation = logoRotation;
     phase = 1;
+    if (dist(d.x, d.y, logoX, logoY) >= inchToPix(.05f))
+      errorFlashStart = millis();
 
   } else if (phase == 1) {
     // Submit trial
@@ -248,8 +290,10 @@ void mousePressed()
 
 void submitTrial()
 {
-  if (userDone == false && !checkForSuccess())
+  if (userDone == false && !checkForSuccess()) {
     errorCount++;
+    errorFlashStart = millis();
+  }
 
   trialIndex++;
 
