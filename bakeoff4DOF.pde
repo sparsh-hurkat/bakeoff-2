@@ -12,25 +12,16 @@ float errorPenalty = 1.0f; //for every error, add this value to mean time
 int startTime = 0; // time starts when the first click is captured
 int finishTime = 0; //records the time of the final click
 boolean userDone = false; //is the user done
+int inputState = 0; // 0 = Position, 1 = Rotation & Scale
 
 final int screenPPI = 72; //what is the DPI of the screen you are using
 //you can test this by drawing a 72x72 pixel rectangle in code, and then confirming with a ruler it is 1x1 inch. 
 
 //These variables are for my example design. Your input code should modify/replace these!
 float logoX = 500;
-float logoY = 400;
-float logoZ = 117f;  // 6.5 * inchToPix(.25f) — average of possible sizes
+float logoY = 500;
+float logoZ = 50f;
 float logoRotation = 0;
-
-int phase = 0; // 0=position, 1=combined size+rotation (2D)
-
-float anchorMouseX  = 0;
-float anchorMouseY  = 0;
-float anchorLogoZ   = 0;
-float anchorRotation = 0;
-
-final float sizeScale = 1.5f;  // px of size per px of horizontal mouse travel
-final float rotScale  = 0.6f;  // degrees per px of vertical mouse travel
 
 private class Destination
 {
@@ -66,14 +57,34 @@ void setup() {
   }
 
   Collections.shuffle(destinations); // randomize the order of the button; don't change this.
-  cursor(CROSS);
 }
 
 
 
 void draw() {
+  if (userDone) {
+    background(40);
+  } else {
+    Destination d = destinations.get(trialIndex);
+    boolean isCorrect = false;
 
-  background(40); //background is dark grey
+    if (inputState == 0) {
+      isCorrect = dist(d.x, d.y, logoX, logoY) < inchToPix(.05f); 
+    } else if (inputState == 1) {
+      boolean rotCorrect = calculateDifferenceBetweenAngles(d.rotation, logoRotation) <= 5;
+      boolean zCorrect = abs(d.z - logoZ) < inchToPix(.1f);
+      isCorrect = rotCorrect && zCorrect;
+    }
+
+    if (isCorrect) {
+      background(80, 140, 80);
+    } else {
+      background(40);
+    }
+  }
+
+  fill(200);
+  noStroke();
   fill(200);
   noStroke();
   
@@ -91,30 +102,32 @@ void draw() {
   }
 
   //===========DRAW DESTINATION SQUARES=================
-  for (int i=trialIndex; i<trialCount; i++) // reduces over time
-  {
+//===========DRAW DESTINATION SQUARES=================
+  for (int i=trialIndex; i<trialCount; i++) {
     pushMatrix();
-    Destination d = destinations.get(i); //get destination trial
-    translate(d.x, d.y); //center the drawing coordinates to the center of the destination trial
+    Destination d = destinations.get(i);
+    translate(d.x, d.y);
     
-    rotate(radians(d.rotation)); //rotate around the origin of the Ddestination trial
+    rotate(radians(d.rotation));
+    
     noFill();
     strokeWeight(3f);
-    if (trialIndex==i)
-      stroke(255, 0, 0, 192); //set color to semi translucent
-    else
-      stroke(80, 80, 80, 60); //set color to semi translucent
+    
+    if (trialIndex==i) {
+      stroke(255, 0, 0, 192);
+    } else {
+      stroke(128, 128, 128, 128);
+    }
+    
     rect(0, 0, d.z, d.z);
+    
+    if (trialIndex == i) {
+      fill(255, 0, 0, 192);
+      noStroke();    
+      circle(0, 0, inchToPix(0.05f));
+    }
+    
     popMatrix();
-
-    // Draw center tolerance circle
-    float tol = inchToPix(.05f) * 2; // diameter = tolerance radius * 2
-    noStroke();
-    if (trialIndex==i)
-      fill(0, 220, 0, 200);
-    else
-      fill(80, 80, 80, 50);
-    ellipse(d.x, d.y, tol, tol);
   }
 
   //===========DRAW LOGO SQUARE=================
@@ -132,140 +145,58 @@ void draw() {
   text("Trial " + (trialIndex+1) + " of " +trialCount, width/2, inchToPix(.8f));
 }
 
+//my example design for control, which is terrible
 void scaffoldControlLogic()
 {
-  if (trialIndex >= trialCount) return;
-
-  Destination d = destinations.get(trialIndex);
-
-  if (phase == 0) {
+  fill(255);
+  
+  if (inputState == 0) {
+    text("Step 1: Move mouse to position. Click to lock.", width/2, inchToPix(.8f) + 30);
     logoX = mouseX;
     logoY = mouseY;
-    drawFeedback(dist(d.x, d.y, logoX, logoY) < inchToPix(.05f));
-
-    // Line from cursor to target center
-    strokeCap(ROUND);
-    stroke(0, 200, 0, 120);
-    strokeWeight(1f);
-    line(mouseX, mouseY, d.x, d.y);
-    strokeCap(SQUARE);
-
-  } else if (phase == 1) {
-    // X = size, Y = rotation — both from anchor
-    logoZ        = constrain(anchorLogoZ + (mouseX - anchorMouseX) * sizeScale, .01, inchToPix(4f));
-    logoRotation = anchorRotation + (anchorMouseY - mouseY) * rotScale;
-
-    // Target point in mouse space
-    float nearestRot = findNearestEquivalentAngle(d.rotation, anchorRotation);
-    float targetX = anchorMouseX + (d.z - anchorLogoZ) / sizeScale;
-    float targetY = anchorMouseY - (nearestRot - anchorRotation) / rotScale;
-    float tolW    = 2 * inchToPix(.1f) / sizeScale;
-    float tolH    = 2 * 5.0f / rotScale;
-
-    boolean inZone = abs(d.z - logoZ) < inchToPix(.1f) &&
-                     (float)calculateDifferenceBetweenAngles(d.rotation, logoRotation) <= 5;
-    drawFeedback(inZone);
-
-    // Line from cursor to target
-    strokeCap(ROUND);
-    stroke(0, 200, 0, 100);
-    strokeWeight(1f);
-    line(mouseX, mouseY, targetX, targetY);
-    strokeCap(SQUARE);
-
-    drawReticle(targetX, targetY, tolW, tolH);
+  } 
+  else if (inputState == 1) {
+    text("Step 2: Drag to rotate (Left/Right) and scale (Up/Down). Click to submit!", width/2, inchToPix(.8f) + 30);
+    
+    float rotationSensitivity = 0.5f; 
+    logoRotation += (mouseX - pmouseX) * rotationSensitivity;
+    
+    float scaleSensitivity = 0.01f; 
+    logoZ += (pmouseY - mouseY) * scaleSensitivity * screenPPI;
+    
+    logoZ = constrain(logoZ, .01, inchToPix(4f)); 
   }
-
-}
-
-void drawReticle(float cx, float cy, float w, float h) {
-  noStroke();
-  fill(0, 200, 0);
-  rect(cx, cy, w, h);
-}
-
-float findNearestEquivalentAngle(float target, float reference) {
-  float best = target;
-  float bestDiff = Float.MAX_VALUE;
-  for (int k = -4; k <= 4; k++) {
-    float candidate = target + k * 90;
-    float d = abs(candidate - reference);
-    if (d < bestDiff) { bestDiff = d; best = candidate; }
-  }
-  return best;
-}
-
-void drawFeedback(boolean correct) {
-  if (!correct) return;
-  noStroke();
-  fill(0, 200, 0, 80);
-  rect(width/2, height/2, width, height);
-}
-
-
-boolean rotationNeedsUp(float target, float current) {
-  float best = target;
-  float bestDiff = Float.MAX_VALUE;
-  for (int k = -4; k <= 4; k++) {
-    float candidate = target + k * 90;
-    float d = abs(candidate - current);
-    if (d < bestDiff) {
-      bestDiff = d;
-      best = candidate;
-    }
-  }
-  return best > current;
 }
 
 void mousePressed()
 {
-  if (startTime == 0)
-  {
+  if (startTime == 0) {
     startTime = millis();
     println("time started!");
   }
 
-  if (trialIndex >= trialCount) return;
-
-  if (phase == 0) {
-    logoX        = mouseX;
-    logoY        = mouseY;
-    anchorMouseX = mouseX;
-    anchorMouseY = mouseY;
-    anchorLogoZ  = logoZ;
-    anchorRotation = logoRotation;
-    phase = 1;
+  if (inputState == 0) {
+    inputState = 1;
   } 
-}
+  else if (inputState == 1) {
+    if (userDone == false && !checkForSuccess()) {
+      errorCount++;
+    }
+    
+    trialIndex++;
 
-void submitTrial()
-{
-  if (userDone == false && !checkForSuccess())
-    errorCount++;
-
-  trialIndex++;
-
-  if (trialIndex == trialCount && userDone == false)
-  {
-    userDone = true;
-    finishTime = millis();
+    if (trialIndex == trialCount && userDone == false) {
+      userDone = true;
+      finishTime = millis();
+    }
+    
+    inputState = 0;
   }
-
-  // Reset to known state so every trial starts the same
-  logoX        = width / 2f;
-  logoY        = height / 2f;
-  logoZ        = 6.5f * inchToPix(.25f);
-  logoRotation = 0;
 }
 
 void mouseReleased()
 {
-  if (trialIndex >= trialCount) return;
 
-  if (phase == 1) {
-    phase = 0;
-    submitTrial();
-  }
 }
 
 //probably shouldn't modify this, but email me if you want to for some good reason.
