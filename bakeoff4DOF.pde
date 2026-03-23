@@ -12,6 +12,7 @@ float errorPenalty = 1.0f; //for every error, add this value to mean time
 int startTime = 0; // time starts when the first click is captured
 int finishTime = 0; //records the time of the final click
 boolean userDone = false; //is the user done
+int inputState = 0; // 0 = Position, 1 = Rotation & Scale
 
 final int screenPPI = 72; //what is the DPI of the screen you are using
 //you can test this by drawing a 72x72 pixel rectangle in code, and then confirming with a ruler it is 1x1 inch. 
@@ -61,8 +62,29 @@ void setup() {
 
 
 void draw() {
+  if (userDone) {
+    background(40);
+  } else {
+    Destination d = destinations.get(trialIndex);
+    boolean isCorrect = false;
 
-  background(40); //background is dark grey
+    if (inputState == 0) {
+      isCorrect = dist(d.x, d.y, logoX, logoY) < inchToPix(.05f); 
+    } else if (inputState == 1) {
+      boolean rotCorrect = calculateDifferenceBetweenAngles(d.rotation, logoRotation) <= 5;
+      boolean zCorrect = abs(d.z - logoZ) < inchToPix(.1f);
+      isCorrect = rotCorrect && zCorrect;
+    }
+
+    if (isCorrect) {
+      background(80, 140, 80);
+    } else {
+      background(40);
+    }
+  }
+
+  fill(200);
+  noStroke();
   fill(200);
   noStroke();
   
@@ -80,20 +102,31 @@ void draw() {
   }
 
   //===========DRAW DESTINATION SQUARES=================
-  for (int i=trialIndex; i<trialCount; i++) // reduces over time
-  {
+//===========DRAW DESTINATION SQUARES=================
+  for (int i=trialIndex; i<trialCount; i++) {
     pushMatrix();
-    Destination d = destinations.get(i); //get destination trial
-    translate(d.x, d.y); //center the drawing coordinates to the center of the destination trial
+    Destination d = destinations.get(i);
+    translate(d.x, d.y);
     
-    rotate(radians(d.rotation)); //rotate around the origin of the Ddestination trial
+    rotate(radians(d.rotation));
+    
     noFill();
     strokeWeight(3f);
-    if (trialIndex==i)
-      stroke(255, 0, 0, 192); //set color to semi translucent
-    else
-      stroke(128, 128, 128, 128); //set color to semi translucent
+    
+    if (trialIndex==i) {
+      stroke(255, 0, 0, 192);
+    } else {
+      stroke(128, 128, 128, 128);
+    }
+    
     rect(0, 0, d.z, d.z);
+    
+    if (trialIndex == i) {
+      fill(255, 0, 0, 192);
+      noStroke();    
+      circle(0, 0, inchToPix(0.05f));
+    }
+    
     popMatrix();
   }
 
@@ -115,69 +148,55 @@ void draw() {
 //my example design for control, which is terrible
 void scaffoldControlLogic()
 {
-  //upper left corner, rotate counterclockwise
-  text("CCW", inchToPix(.4f), inchToPix(.4f));
-  if (mousePressed && dist(0, 0, mouseX, mouseY)<inchToPix(.8f))
-    logoRotation--;
-
-  //upper right corner, rotate clockwise
-  text("CW", width-inchToPix(.4f), inchToPix(.4f));
-  if (mousePressed && dist(width, 0, mouseX, mouseY)<inchToPix(.8f))
-    logoRotation++;
-
-  //lower left corner, decrease Z
-  text("-", inchToPix(.4f), height-inchToPix(.4f));
-  if (mousePressed && dist(0, height, mouseX, mouseY)<inchToPix(.8f))
-    logoZ = constrain(logoZ-inchToPix(.02f), .01, inchToPix(4f)); //leave min and max alone!
-
-  //lower right corner, increase Z
-  text("+", width-inchToPix(.4f), height-inchToPix(.4f));
-  if (mousePressed && dist(width, height, mouseX, mouseY)<inchToPix(.8f))
-    logoZ = constrain(logoZ+inchToPix(.02f), .01, inchToPix(4f)); //leave min and max alone! 
-
-  //left middle, move left
-  text("left", inchToPix(.4f), height/2);
-  if (mousePressed && dist(0, height/2, mouseX, mouseY)<inchToPix(.8f))
-    logoX-=inchToPix(.02f);
-
-  text("right", width-inchToPix(.4f), height/2);
-  if (mousePressed && dist(width, height/2, mouseX, mouseY)<inchToPix(.8f))
-    logoX+=inchToPix(.02f);
-
-  text("up", width/2, inchToPix(.4f));
-  if (mousePressed && dist(width/2, 0, mouseX, mouseY)<inchToPix(.8f))
-    logoY-=inchToPix(.02f);
-
-  text("down", width/2, height-inchToPix(.4f));
-  if (mousePressed && dist(width/2, height, mouseX, mouseY)<inchToPix(.8f))
-    logoY+=inchToPix(.02f);
+  fill(255);
+  
+  if (inputState == 0) {
+    text("Step 1: Move mouse to position. Click to lock.", width/2, inchToPix(.8f) + 30);
+    logoX = mouseX;
+    logoY = mouseY;
+  } 
+  else if (inputState == 1) {
+    text("Step 2: Drag to rotate (Left/Right) and scale (Up/Down). Click to submit!", width/2, inchToPix(.8f) + 30);
+    
+    float rotationSensitivity = 0.5f; 
+    logoRotation += (mouseX - pmouseX) * rotationSensitivity;
+    
+    float scaleSensitivity = 0.01f; 
+    logoZ += (pmouseY - mouseY) * scaleSensitivity * screenPPI;
+    
+    logoZ = constrain(logoZ, .01, inchToPix(4f)); 
+  }
 }
 
 void mousePressed()
 {
-  if (startTime == 0) //start time on the instant of the first user click
-  {
+  if (startTime == 0) {
     startTime = millis();
     println("time started!");
+  }
+
+  if (inputState == 0) {
+    inputState = 1;
+  } 
+  else if (inputState == 1) {
+    if (userDone == false && !checkForSuccess()) {
+      errorCount++;
+    }
+    
+    trialIndex++;
+
+    if (trialIndex == trialCount && userDone == false) {
+      userDone = true;
+      finishTime = millis();
+    }
+    
+    inputState = 0;
   }
 }
 
 void mouseReleased()
 {
-  //check to see if user clicked middle of screen within 3 inches, which this code uses as a submit button
-  if (dist(width/2, height/2, mouseX, mouseY)<inchToPix(3f))
-  {
-    if (userDone==false && !checkForSuccess())
-      errorCount++;
 
-    trialIndex++; //and move on to next trial
-
-    if (trialIndex==trialCount && userDone==false)
-    {
-      userDone = true;
-      finishTime = millis();
-    }
-  }
 }
 
 //probably shouldn't modify this, but email me if you want to for some good reason.
