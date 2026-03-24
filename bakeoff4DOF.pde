@@ -12,7 +12,7 @@ float errorPenalty = 1.0f; //for every error, add this value to mean time
 int startTime = 0; // time starts when the first click is captured
 int finishTime = 0; //records the time of the final click
 boolean userDone = false; //is the user done
-int inputState = 0; // 0 = Position, 1 = Rotation & Scale
+int inputState = 0; // 0 = Position, 1 = Rotation, 2 = Scale
 
 final int screenPPI = 72; //what is the DPI of the screen you are using
 //you can test this by drawing a 72x72 pixel rectangle in code, and then confirming with a ruler it is 1x1 inch. 
@@ -69,11 +69,11 @@ void draw() {
     boolean isCorrect = false;
 
     if (inputState == 0) {
-      isCorrect = dist(d.x, d.y, logoX, logoY) < inchToPix(.05f); 
+      isCorrect = dist(d.x, d.y, logoX, logoY) < inchToPix(.05f);
     } else if (inputState == 1) {
-      boolean rotCorrect = calculateDifferenceBetweenAngles(d.rotation, logoRotation) <= 5;
-      boolean zCorrect = abs(d.z - logoZ) < inchToPix(.1f);
-      isCorrect = rotCorrect && zCorrect;
+      isCorrect = calculateDifferenceBetweenAngles(d.rotation, logoRotation) <= 5;
+    } else if (inputState == 2) {
+      isCorrect = abs(d.z - logoZ) < inchToPix(.1f);
     }
 
     if (isCorrect) {
@@ -156,12 +156,13 @@ void scaffoldControlLogic()
     logoY = mouseY;
   } 
   else if (inputState == 1) {
-    text("Step 2: Drag to rotate (Left/Right) and scale (Up/Down). Click to submit!", width/2, inchToPix(.8f) + 30);
-    
-    float rotationSensitivity = 0.5f; 
+    text("Step 2: Drag Left/Right to rotate. Click to lock.", width/2, inchToPix(.8f) + 30);
+    float rotationSensitivity = 0.5f;
     logoRotation += (mouseX - pmouseX) * rotationSensitivity;
-    
-    float scaleSensitivity = 0.01f; 
+  } 
+  else if (inputState == 2) {
+    text("Step 3: Drag Up/Down to scale. Click to submit!", width/2, inchToPix(.8f) + 30);
+    float scaleSensitivity = 0.01f;
     logoZ += (pmouseY - mouseY) * scaleSensitivity * screenPPI;
     
     logoZ = constrain(logoZ, .01, inchToPix(4f)); 
@@ -170,7 +171,7 @@ void scaffoldControlLogic()
 
 void mousePressed()
 {
-  if (startTime == 0) {
+  if (startTime == 0) {//start time on the instant of the first user click
     startTime = millis();
     println("time started!");
   }
@@ -179,6 +180,9 @@ void mousePressed()
     inputState = 1;
   } 
   else if (inputState == 1) {
+    inputState = 2;
+  } 
+  else if (inputState == 2) {
     if (userDone == false && !checkForSuccess()) {
       errorCount++;
     }
@@ -189,8 +193,7 @@ void mousePressed()
       userDone = true;
       finishTime = millis();
     }
-    
-    inputState = 0;
+    inputState = 0; 
   }
 }
 
