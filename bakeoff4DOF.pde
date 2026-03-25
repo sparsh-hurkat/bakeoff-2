@@ -12,27 +12,15 @@ float errorPenalty = 1.0f; //for every error, add this value to mean time
 int startTime = 0; // time starts when the first click is captured
 int finishTime = 0; //records the time of the final click
 boolean userDone = false; //is the user done
-int errorFlashStart = -1; //timestamp of last error, -1 means no flash
-final int errorFlashDuration = 600; //ms to show error flash
 
 final int screenPPI = 72; //what is the DPI of the screen you are using
 //you can test this by drawing a 72x72 pixel rectangle in code, and then confirming with a ruler it is 1x1 inch. 
 
 //These variables are for my example design. Your input code should modify/replace these!
 float logoX = 500;
-float logoY = 400;
-float logoZ = 117f;  // 6.5 * inchToPix(.25f) — average of possible sizes
+float logoY = 500;
+float logoZ = 50f;
 float logoRotation = 0;
-
-int phase = 0; // 0=position, 1=combined size+rotation (2D)
-
-float anchorMouseX  = 0;
-float anchorMouseY  = 0;
-float anchorLogoZ   = 0;
-float anchorRotation = 0;
-
-final float sizeScale = 1.5f;  // px of size per px of horizontal mouse travel
-final float rotScale  = 0.6f;  // degrees per px of vertical mouse travel
 
 private class Destination
 {
@@ -68,7 +56,6 @@ void setup() {
   }
 
   Collections.shuffle(destinations); // randomize the order of the button; don't change this.
-  noCursor();
 }
 
 
@@ -105,18 +92,9 @@ void draw() {
     if (trialIndex==i)
       stroke(255, 0, 0, 192); //set color to semi translucent
     else
-      stroke(80, 80, 80, 60); //set color to semi translucent
+      stroke(128, 128, 128, 128); //set color to semi translucent
     rect(0, 0, d.z, d.z);
     popMatrix();
-
-    // Draw center tolerance circle
-    float tol = inchToPix(.05f) * 2; // diameter = tolerance radius * 2
-    noStroke();
-    if (trialIndex==i)
-      fill(0, 220, 0, 200);
-    else
-      fill(80, 80, 80, 50);
-    ellipse(d.x, d.y, tol, tol);
   }
 
   //===========DRAW LOGO SQUARE=================
@@ -128,220 +106,78 @@ void draw() {
   rect(0, 0, logoZ, logoZ);
   popMatrix();
 
-  //===========ERROR FLASH=================
-  if (errorFlashStart >= 0) {
-    float elapsed = millis() - errorFlashStart;
-    if (elapsed < errorFlashDuration) {
-      float alpha = map(elapsed, 0, errorFlashDuration, 120, 0);
-      noStroke();
-      fill(220, 0, 0, alpha);
-      rect(width/2, height/2, width, height);
-    } else {
-      errorFlashStart = -1;
-    }
-  }
-
   //===========DRAW EXAMPLE CONTROLS=================
   fill(255);
   scaffoldControlLogic(); //you are going to want to replace this!
   text("Trial " + (trialIndex+1) + " of " +trialCount, width/2, inchToPix(.8f));
-  drawCrosshair();
 }
 
+//my example design for control, which is terrible
 void scaffoldControlLogic()
 {
-  if (trialIndex >= trialCount) return;
+  //upper left corner, rotate counterclockwise
+  text("CCW", inchToPix(.4f), inchToPix(.4f));
+  if (mousePressed && dist(0, 0, mouseX, mouseY)<inchToPix(.8f))
+    logoRotation--;
 
-  Destination d = destinations.get(trialIndex);
+  //upper right corner, rotate clockwise
+  text("CW", width-inchToPix(.4f), inchToPix(.4f));
+  if (mousePressed && dist(width, 0, mouseX, mouseY)<inchToPix(.8f))
+    logoRotation++;
 
-  if (phase == 0) {
-    logoX = mouseX;
-    logoY = mouseY;
-    drawFeedback(dist(d.x, d.y, logoX, logoY) < inchToPix(.05f));
+  //lower left corner, decrease Z
+  text("-", inchToPix(.4f), height-inchToPix(.4f));
+  if (mousePressed && dist(0, height, mouseX, mouseY)<inchToPix(.8f))
+    logoZ = constrain(logoZ-inchToPix(.02f), .01, inchToPix(4f)); //leave min and max alone!
 
-    // Flash the position circle
-    float pulse = (sin(millis() * 0.02f) + 1) * 0.5f;
-    noStroke();
-    fill(0, 220, 0, 30 + pulse * 225);
-    ellipse(d.x, d.y, inchToPix(.05f) * 2, inchToPix(.05f) * 2);
+  //lower right corner, increase Z
+  text("+", width-inchToPix(.4f), height-inchToPix(.4f));
+  if (mousePressed && dist(width, height, mouseX, mouseY)<inchToPix(.8f))
+    logoZ = constrain(logoZ+inchToPix(.02f), .01, inchToPix(4f)); //leave min and max alone! 
 
-    // Fixed preview of where the phase 1 rectangle will be
-    float nearestRot    = findNearestEquivalentAngle(d.rotation, logoRotation);
-    float predictX      = d.x + (d.z - logoZ) / sizeScale;
-    float predictY      = d.y - (nearestRot - logoRotation) / rotScale;
-    float tolW          = 2 * inchToPix(.1f) / sizeScale;
-    float tolH          = 2 * 5.0f / rotScale;
-    noStroke();
-    fill(255, 140, 0, 80);
-    rect(predictX, predictY, tolW, tolH);
+  //left middle, move left
+  text("left", inchToPix(.4f), height/2);
+  if (mousePressed && dist(0, height/2, mouseX, mouseY)<inchToPix(.8f))
+    logoX-=inchToPix(.02f);
 
-    // Line from cursor to target center
-    strokeCap(ROUND);
-    stroke(0, 220, 0, 255);
-    strokeWeight(2f);
-    line(mouseX, mouseY, d.x, d.y);
-    strokeCap(SQUARE);
+  text("right", width-inchToPix(.4f), height/2);
+  if (mousePressed && dist(width, height/2, mouseX, mouseY)<inchToPix(.8f))
+    logoX+=inchToPix(.02f);
 
-  } else if (phase == 1) {
-    // X = size, Y = rotation — both from anchor
-    logoZ        = constrain(anchorLogoZ + (mouseX - anchorMouseX) * sizeScale, .01, inchToPix(4f));
-    logoRotation = anchorRotation + (anchorMouseY - mouseY) * rotScale;
+  text("up", width/2, inchToPix(.4f));
+  if (mousePressed && dist(width/2, 0, mouseX, mouseY)<inchToPix(.8f))
+    logoY-=inchToPix(.02f);
 
-    // Target point in mouse space
-    float nearestRot = findNearestEquivalentAngle(d.rotation, anchorRotation);
-    float targetX = anchorMouseX + (d.z - anchorLogoZ) / sizeScale;
-    float targetY = anchorMouseY - (nearestRot - anchorRotation) / rotScale;
-    float tolW    = 2 * inchToPix(.1f) / sizeScale;
-    float tolH    = 2 * 5.0f / rotScale;
-
-    boolean inZone = abs(d.z - logoZ) < inchToPix(.1f) &&
-                     (float)calculateDifferenceBetweenAngles(d.rotation, logoRotation) <= 5;
-    drawFeedback(inZone);
-
-    // Line from cursor to target
-    strokeCap(ROUND);
-    stroke(0, 220, 0, 255);
-    strokeWeight(2f);
-    line(mouseX, mouseY, targetX, targetY);
-    strokeCap(SQUARE);
-
-    drawReticle(targetX, targetY, tolW, tolH);
-
-    // Ghost of next trial's position circle
-    if (trialIndex + 1 < trialCount) {
-      Destination next = destinations.get(trialIndex + 1);
-      noStroke();
-      fill(255, 140, 0, 150);
-      ellipse(next.x, next.y, inchToPix(.05f) * 2, inchToPix(.05f) * 2);
-    }
-  }
-
-}
-
-void drawReticle(float cx, float cy, float w, float h) {
-  float pulse = (sin(millis() * 0.02f) + 1) * 0.5f;
-  noStroke();
-  fill(0, 220, 0, 30 + pulse * 225);
-  rect(cx, cy, w, h);
-}
-
-float findNearestEquivalentAngle(float target, float reference) {
-  float best = target;
-  float bestDiff = Float.MAX_VALUE;
-  for (int k = -4; k <= 4; k++) {
-    float candidate = target + k * 90;
-    float d = abs(candidate - reference);
-    if (d < bestDiff) { bestDiff = d; best = candidate; }
-  }
-  return best;
-}
-
-boolean cursorGreen  = false;
-boolean prevInZone   = false;
-
-void drawFeedback(boolean correct) {
-  cursorGreen = correct;
-  prevInZone = correct;
-  if (!correct) return;
-  noStroke();
-  fill(0, 220, 0, 80);
-  rect(width/2, height/2, width, height);
-}
-
-void drawCrosshair() {
-  float arm = 7;
-  strokeCap(ROUND);
-  noFill();
-  if (cursorGreen) {
-    stroke(0, 0, 0, 160);
-    strokeWeight(3);
-    line(mouseX - arm, mouseY, mouseX + arm, mouseY);
-    line(mouseX, mouseY - arm, mouseX, mouseY + arm);
-    stroke(0, 220, 0, 240);
-    strokeWeight(1.5f);
-  } else {
-    stroke(0, 0, 0, 160);
-    strokeWeight(3);
-    line(mouseX - arm, mouseY, mouseX + arm, mouseY);
-    line(mouseX, mouseY - arm, mouseX, mouseY + arm);
-    stroke(255, 255, 255, 220);
-    strokeWeight(1.5f);
-  }
-  line(mouseX - arm, mouseY, mouseX + arm, mouseY);
-  line(mouseX, mouseY - arm, mouseX, mouseY + arm);
-}
-
-
-boolean rotationNeedsUp(float target, float current) {
-  float best = target;
-  float bestDiff = Float.MAX_VALUE;
-  for (int k = -4; k <= 4; k++) {
-    float candidate = target + k * 90;
-    float d = abs(candidate - current);
-    if (d < bestDiff) {
-      bestDiff = d;
-      best = candidate;
-    }
-  }
-  return best > current;
+  text("down", width/2, height-inchToPix(.4f));
+  if (mousePressed && dist(width/2, height, mouseX, mouseY)<inchToPix(.8f))
+    logoY+=inchToPix(.02f);
 }
 
 void mousePressed()
 {
-  if (startTime == 0)
+  if (startTime == 0) //start time on the instant of the first user click
   {
     startTime = millis();
     println("time started!");
   }
-
-  if (trialIndex >= trialCount) return;
-
-  Destination d = destinations.get(trialIndex);
-
-  if (phase == 0) {
-    // Lock position, enter combined size+rotation phase
-    logoX        = mouseX;
-    logoY        = mouseY;
-    anchorMouseX = mouseX;
-    anchorMouseY = mouseY;
-    anchorLogoZ  = logoZ;
-    anchorRotation = logoRotation;
-    phase = 1;
-    if (dist(d.x, d.y, logoX, logoY) >= inchToPix(.05f))
-      errorFlashStart = millis();
-
-  } else if (phase == 1) {
-    // Submit trial
-    phase = 0;
-    submitTrial();
-  }
-}
-
-void submitTrial()
-{
-  if (userDone == false && !checkForSuccess()) {
-    errorCount++;
-    errorFlashStart = millis();
-  }
-
-  trialIndex++;
-
-  if (trialIndex == trialCount && userDone == false)
-  {
-    userDone = true;
-    finishTime = millis();
-  }
-
-  // Reset to known state so every trial starts the same
-  logoX        = width / 2f;
-  logoY        = height / 2f;
-  logoZ        = 6.5f * inchToPix(.25f);
-  logoRotation = 0;
 }
 
 void mouseReleased()
 {
-  // Phase transitions are handled in mousePressed
+  //check to see if user clicked middle of screen within 3 inches, which this code uses as a submit button
+  if (dist(width/2, height/2, mouseX, mouseY)<inchToPix(3f))
+  {
+    if (userDone==false && !checkForSuccess())
+      errorCount++;
+
+    trialIndex++; //and move on to next trial
+
+    if (trialIndex==trialCount && userDone==false)
+    {
+      userDone = true;
+      finishTime = millis();
+    }
+  }
 }
 
 //probably shouldn't modify this, but email me if you want to for some good reason.
@@ -376,4 +212,3 @@ float inchToPix(float inch)
 {
   return inch*screenPPI;
 }
-
