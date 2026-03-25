@@ -162,7 +162,7 @@ void scaffoldControlLogic()
     // Flash the position circle
     float pulse = (sin(millis() * 0.02f) + 1) * 0.5f;
     noStroke();
-    fill(0, 255, 255, 30 + pulse * 225);
+    fill(0, 220, 0, 30 + pulse * 225);
     ellipse(d.x, d.y, inchToPix(.05f) * 2, inchToPix(.05f) * 2);
 
     // Fixed preview of where the phase 1 rectangle will be
@@ -177,7 +177,7 @@ void scaffoldControlLogic()
 
     // Line from cursor to target center
     strokeCap(ROUND);
-    stroke(0, 255, 255, 255);
+    stroke(0, 220, 0, 255);
     strokeWeight(2f);
     line(mouseX, mouseY, d.x, d.y);
     strokeCap(SQUARE);
@@ -200,7 +200,7 @@ void scaffoldControlLogic()
 
     // Line from cursor to target
     strokeCap(ROUND);
-    stroke(0, 255, 255, 255);
+    stroke(0, 220, 0, 255);
     strokeWeight(2f);
     line(mouseX, mouseY, targetX, targetY);
     strokeCap(SQUARE);
@@ -221,7 +221,7 @@ void scaffoldControlLogic()
 void drawReticle(float cx, float cy, float w, float h) {
   float pulse = (sin(millis() * 0.02f) + 1) * 0.5f;
   noStroke();
-  fill(0, 255, 255, 30 + pulse * 225);
+  fill(0, 220, 0, 30 + pulse * 225);
   rect(cx, cy, w, h);
 }
 
@@ -244,7 +244,7 @@ void drawFeedback(boolean correct) {
   prevInZone = correct;
   if (!correct) return;
   noStroke();
-  fill(0, 255, 255, 80);
+  fill(0, 220, 0, 80);
   rect(width/2, height/2, width, height);
 }
 
@@ -257,7 +257,7 @@ void drawCrosshair() {
     strokeWeight(3);
     line(mouseX - arm, mouseY, mouseX + arm, mouseY);
     line(mouseX, mouseY - arm, mouseX, mouseY + arm);
-    stroke(0, 255, 255, 240);
+    stroke(0, 220, 0, 240);
     strokeWeight(1.5f);
   } else {
     stroke(0, 0, 0, 160);
