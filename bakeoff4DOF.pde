@@ -249,7 +249,7 @@ void drawFeedback(boolean correct) {
 }
 
 void drawCrosshair() {
-  float arm = 12;
+  float arm = 7;
   strokeCap(ROUND);
   noFill();
   if (cursorGreen) {
