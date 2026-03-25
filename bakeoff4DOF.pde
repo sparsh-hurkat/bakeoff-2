@@ -68,7 +68,7 @@ void setup() {
   }
 
   Collections.shuffle(destinations); // randomize the order of the button; don't change this.
-  cursor(CROSS);
+  noCursor();
 }
 
 
@@ -145,6 +145,7 @@ void draw() {
   fill(255);
   scaffoldControlLogic(); //you are going to want to replace this!
   text("Trial " + (trialIndex+1) + " of " +trialCount, width/2, inchToPix(.8f));
+  drawCrosshair();
 }
 
 void scaffoldControlLogic()
@@ -161,7 +162,7 @@ void scaffoldControlLogic()
     // Flash the position circle
     float pulse = (sin(millis() * 0.02f) + 1) * 0.5f;
     noStroke();
-    fill(0, 255, 0, 30 + pulse * 225);
+    fill(0, 255, 255, 30 + pulse * 225);
     ellipse(d.x, d.y, inchToPix(.05f) * 2, inchToPix(.05f) * 2);
 
     // Fixed preview of where the phase 1 rectangle will be
@@ -171,13 +172,13 @@ void scaffoldControlLogic()
     float tolW          = 2 * inchToPix(.1f) / sizeScale;
     float tolH          = 2 * 5.0f / rotScale;
     noStroke();
-    fill(255, 255, 255, 25);
+    fill(255, 140, 0, 80);
     rect(predictX, predictY, tolW, tolH);
 
     // Line from cursor to target center
     strokeCap(ROUND);
-    stroke(0, 200, 0, 120);
-    strokeWeight(1f);
+    stroke(0, 255, 255, 255);
+    strokeWeight(2f);
     line(mouseX, mouseY, d.x, d.y);
     strokeCap(SQUARE);
 
@@ -199,8 +200,8 @@ void scaffoldControlLogic()
 
     // Line from cursor to target
     strokeCap(ROUND);
-    stroke(0, 200, 0, 100);
-    strokeWeight(1f);
+    stroke(0, 255, 255, 255);
+    strokeWeight(2f);
     line(mouseX, mouseY, targetX, targetY);
     strokeCap(SQUARE);
 
@@ -210,7 +211,7 @@ void scaffoldControlLogic()
     if (trialIndex + 1 < trialCount) {
       Destination next = destinations.get(trialIndex + 1);
       noStroke();
-      fill(255, 255, 255, 100);
+      fill(255, 140, 0, 150);
       ellipse(next.x, next.y, inchToPix(.05f) * 2, inchToPix(.05f) * 2);
     }
   }
@@ -220,7 +221,7 @@ void scaffoldControlLogic()
 void drawReticle(float cx, float cy, float w, float h) {
   float pulse = (sin(millis() * 0.02f) + 1) * 0.5f;
   noStroke();
-  fill(0, 255, 0, 30 + pulse * 225);
+  fill(0, 255, 255, 30 + pulse * 225);
   rect(cx, cy, w, h);
 }
 
@@ -235,11 +236,39 @@ float findNearestEquivalentAngle(float target, float reference) {
   return best;
 }
 
+boolean cursorGreen  = false;
+boolean prevInZone   = false;
+
 void drawFeedback(boolean correct) {
+  cursorGreen = correct;
+  prevInZone = correct;
   if (!correct) return;
   noStroke();
-  fill(0, 200, 0, 80);
+  fill(0, 255, 255, 80);
   rect(width/2, height/2, width, height);
+}
+
+void drawCrosshair() {
+  float arm = 12;
+  strokeCap(ROUND);
+  noFill();
+  if (cursorGreen) {
+    stroke(0, 0, 0, 160);
+    strokeWeight(3);
+    line(mouseX - arm, mouseY, mouseX + arm, mouseY);
+    line(mouseX, mouseY - arm, mouseX, mouseY + arm);
+    stroke(0, 255, 255, 240);
+    strokeWeight(1.5f);
+  } else {
+    stroke(0, 0, 0, 160);
+    strokeWeight(3);
+    line(mouseX - arm, mouseY, mouseX + arm, mouseY);
+    line(mouseX, mouseY - arm, mouseX, mouseY + arm);
+    stroke(255, 255, 255, 220);
+    strokeWeight(1.5f);
+  }
+  line(mouseX - arm, mouseY, mouseX + arm, mouseY);
+  line(mouseX, mouseY - arm, mouseX, mouseY + arm);
 }
 
 
@@ -347,3 +376,4 @@ float inchToPix(float inch)
 {
   return inch*screenPPI;
 }
+
