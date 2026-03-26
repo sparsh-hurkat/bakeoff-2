@@ -128,6 +128,12 @@ void draw() {
   rect(0, 0, logoZ, logoZ);
   popMatrix();
 
+  //===========SPOTLIGHT=================
+  if (trialIndex < trialCount) {
+    Destination sd = destinations.get(trialIndex);
+    drawSpotlight(sd.x, sd.y);
+  }
+
   //===========ERROR FLASH=================
   if (errorFlashStart >= 0) {
     float elapsed = millis() - errorFlashStart;
@@ -216,6 +222,21 @@ void scaffoldControlLogic()
     }
   }
 
+}
+
+void drawSpotlight(float cx, float cy) {
+  // Dark overlay
+  blendMode(BLEND);
+  noStroke();
+  fill(0, 0, 0, 170);
+  rect(width/2, height/2, width, height);
+
+  // Single spotlight circle
+  blendMode(ADD);
+  noStroke();
+  fill(60, 60, 40, 220);
+  ellipse(cx, cy, 320, 320);
+  blendMode(BLEND);
 }
 
 void drawReticle(float cx, float cy, float w, float h) {
